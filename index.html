@@ -92,7 +92,7 @@
   <p class="note">「この品番を保存」で、商品名・仕上げ設定・取り代の設定をまとめて保存します。この端末（このブラウザ）の中にだけ残ります。</p>
   <h3>ほかの端末へ送る</h3>
   <div class="row" style="margin-top:0">
-    <button id="link1">呼び出した品番のリンクを作る</button>
+    <button id="link1">呼び出した品番と作業中の値のリンクを作る</button>
     <button id="linkAll">保存した品番すべてのリンクを作る</button>
   </div>
   <div id="linkBox" style="display:none;margin-top:10px">
@@ -297,16 +297,18 @@ $("clr").onclick=()=>{if(!confirm("実測値をすべて消しますか？（設
 const enc=o=>{const b=new TextEncoder().encode(JSON.stringify(o));let s="";b.forEach(c=>s+=String.fromCharCode(c));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
 const dec=t=>{const s=atob(t.replace(/-/g,"+").replace(/_/g,"/"));return JSON.parse(new TextDecoder().decode(Uint8Array.from(s,c=>c.charCodeAt(0))))};
 function makeLink(obj){
-  const n=Object.keys(obj).length;
+  const names=Object.keys(obj).filter(k=>k!=="_work");
   const url=location.href.split("#")[0]+"#p="+enc(obj);
   $("linkTxt").value=url;$("linkBox").style.display="block";
-  $("linkMsg").textContent=n+" 件の品番（"+Object.keys(obj).join("、")+"）が入ったリンクです。";
+  $("linkMsg").textContent=names.length+" 件の品番（"+names.join("、")+"）"+(obj._work?"と、作業中の値（ユーザー名・実測値）":"")+"が入ったリンクです。";
   $("share").style.display=navigator.share?"inline-block":"none";
 }
 $("link1").onclick=()=>{
   const n=$("presets").value,p=load(PKEY,{});
   if(!n||!p[n]){alert("リンクにする品番を、上の「保存した品番を呼び出す」で選んでください（先に「この品番を保存」が必要です）");return}
-  makeLink({[n]:p[n]});
+  if($("part").value.trim()!==n){alert("品番の欄が「"+n+"」ではありません。品番を呼び出し直してから作ってください");return}
+  const w={};["user",...meas].forEach(k=>{const x=$(k).value.trim();if(x!=="")w[k]=x});
+  makeLink(Object.keys(w).length?{[n]:p[n],_work:w}:{[n]:p[n]});
 };
 $("linkAll").onclick=()=>{
   const p=load(PKEY,{});
@@ -326,11 +328,14 @@ function importFromHash(){
   history.replaceState(null,"",location.href.split("#")[0]);
   let obj;
   try{obj=dec(m[1]);if(typeof obj!=="object"||!obj)throw 0}catch(e){alert("リンクが壊れているため、品番を取り込めませんでした。リンクを作り直してください。");return}
+  const work=(obj._work&&typeof obj._work==="object")?obj._work:null;delete obj._work;
   const p=load(PKEY,{}),names=Object.keys(obj);
   const dup=names.filter(n=>p[n]);
-  if(!confirm(names.length+" 件の品番を取り込みますか？\n"+names.join("、")+(dup.length?"\n\n※ 次の品番は、この端末の保存を上書きします：\n"+dup.join("、"):"")))return;
+  if(!confirm(names.length+" 件の品番を取り込みますか？\n"+names.join("、")+(work?"\n\n作業中の値（ユーザー名・実測値）も入れます。この端末で入力中の実測値は置き換わります。":"")+(dup.length?"\n\n※ 次の品番は、この端末の保存を上書きします：\n"+dup.join("、"):"")))return;
   names.forEach(n=>{const o={};["prod",...setting].forEach(k=>{if(obj[n]&&obj[n][k]!==undefined)o[k]=String(obj[n][k])});p[n]=o});
-  if(store(PKEY,p)){fillPresets(names.length===1?names[0]:"");if(names.length===1)$("presets").onchange();alert(names.length+" 件の品番を取り込みました。")}
+  if(store(PKEY,p)){fillPresets(names.length===1?names[0]:"");if(names.length===1)$("presets").onchange();
+    if(work&&names.length===1){["user",...meas].forEach(k=>$(k).value=work[k]!==undefined?String(work[k]):"");calc()}
+    alert(names.length+" 件の品番"+(work?"と作業中の値":"")+"を取り込みました。")}
   else alert("保存できませんでした（ブラウザの設定で保存が止められています）");
 }
 
