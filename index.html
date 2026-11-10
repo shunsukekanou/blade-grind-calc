@@ -90,6 +90,20 @@
     <button id="del">呼び出した品番を削除</button>
   </div>
   <p class="note">「この品番を保存」で、商品名・仕上げ設定・取り代の設定をまとめて保存します。この端末（このブラウザ）の中にだけ残ります。</p>
+  <h3>ほかの端末へ送る</h3>
+  <div class="row" style="margin-top:0">
+    <button id="link1">呼び出した品番のリンクを作る</button>
+    <button id="linkAll">保存した品番すべてのリンクを作る</button>
+  </div>
+  <div id="linkBox" style="display:none;margin-top:10px">
+    <textarea id="linkTxt" readonly style="width:100%;height:90px;font-size:13px;border:2px solid var(--line);border-radius:8px;padding:6px"></textarea>
+    <div class="row" style="margin-top:6px">
+      <button class="pri" id="copy">リンクをコピー</button>
+      <button id="share" style="display:none">共有（LINE WORKS など）</button>
+    </div>
+    <p class="note" id="linkMsg"></p>
+  </div>
+  <p class="note">リンクを、送り先の端末でふだん使うブラウザ（Chrome など）で開くと、その端末にも品番が保存されます。図面の数値はリンクの中にだけ入り、公開ページのサーバーには送られません。</p>
 </div>
 
 <div class="card meas">
@@ -279,8 +293,51 @@ $("del").onclick=()=>{
 };
 $("clr").onclick=()=>{if(!confirm("実測値をすべて消しますか？（設定は残ります）"))return;meas.forEach(i=>$(i).value="");calc()};
 
+// 品番をリンクにする（#p= の後ろに入れる。# より後ろはサーバーへ送られない）
+const enc=o=>{const b=new TextEncoder().encode(JSON.stringify(o));let s="";b.forEach(c=>s+=String.fromCharCode(c));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
+const dec=t=>{const s=atob(t.replace(/-/g,"+").replace(/_/g,"/"));return JSON.parse(new TextDecoder().decode(Uint8Array.from(s,c=>c.charCodeAt(0))))};
+function makeLink(obj){
+  const n=Object.keys(obj).length;
+  const url=location.href.split("#")[0]+"#p="+enc(obj);
+  $("linkTxt").value=url;$("linkBox").style.display="block";
+  $("linkMsg").textContent=n+" 件の品番（"+Object.keys(obj).join("、")+"）が入ったリンクです。";
+  $("share").style.display=navigator.share?"inline-block":"none";
+}
+$("link1").onclick=()=>{
+  const n=$("presets").value,p=load(PKEY,{});
+  if(!n||!p[n]){alert("リンクにする品番を、上の「保存した品番を呼び出す」で選んでください（先に「この品番を保存」が必要です）");return}
+  makeLink({[n]:p[n]});
+};
+$("linkAll").onclick=()=>{
+  const p=load(PKEY,{});
+  if(!Object.keys(p).length){alert("保存した品番がありません");return}
+  makeLink(p);
+};
+$("copy").onclick=()=>{
+  const t=$("linkTxt").value;
+  const done=()=>$("linkMsg").textContent="コピーしました。LINE WORKS などに貼り付けて、送り先の端末へ送ってください。";
+  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(done,()=>{$("linkTxt").select();document.execCommand("copy");done()});
+  else{$("linkTxt").select();document.execCommand("copy");done()}
+};
+$("share").onclick=()=>{navigator.share({title:"刃形状 削り量計算（品番）",url:$("linkTxt").value}).catch(()=>{})};
+function importFromHash(){
+  const m=location.hash.match(/^#p=([A-Za-z0-9_-]+)/);
+  if(!m)return;
+  history.replaceState(null,"",location.href.split("#")[0]);
+  let obj;
+  try{obj=dec(m[1]);if(typeof obj!=="object"||!obj)throw 0}catch(e){alert("リンクが壊れているため、品番を取り込めませんでした。リンクを作り直してください。");return}
+  const p=load(PKEY,{}),names=Object.keys(obj);
+  const dup=names.filter(n=>p[n]);
+  if(!confirm(names.length+" 件の品番を取り込みますか？\n"+names.join("、")+(dup.length?"\n\n※ 次の品番は、この端末の保存を上書きします：\n"+dup.join("、"):"")))return;
+  names.forEach(n=>{const o={};["prod",...setting].forEach(k=>{if(obj[n]&&obj[n][k]!==undefined)o[k]=String(obj[n][k])});p[n]=o});
+  if(store(PKEY,p)){fillPresets(names.length===1?names[0]:"");if(names.length===1)$("presets").onchange();alert(names.length+" 件の品番を取り込みました。")}
+  else alert("保存できませんでした（ブラウザの設定で保存が止められています）");
+}
+
 ids.forEach(i=>$(i).addEventListener("input",calc));
 fillPresets("");
+importFromHash();
+window.addEventListener("hashchange",()=>{importFromHash();calc()});
 calc();
 if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
