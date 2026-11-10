@@ -1,6 +1,6 @@
 // 電波が無くても開けるように、アプリの部品を端末に保存する。
 // 中身を変えたら VERSION を上げる（古い保存分が入れ替わる）。
-const VERSION = "v5";
+const VERSION = "v6";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

@@ -28,6 +28,7 @@
   select{font-family:inherit;font-size:18px}
   input:focus,select:focus{border-color:var(--acc);outline:none}
   .meas input{background:var(--hl)}
+  .meas input:not(:placeholder-shown){background:#fff}
   .stage{background:var(--st);border:2px solid #b9c9e6}
   .step{display:inline-block;background:var(--acc);color:#fff;border-radius:999px;padding:1px 10px;font-size:14px;margin-right:6px}
   .res{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
@@ -339,6 +340,7 @@ function importFromHash(){
   else alert("保存できませんでした（ブラウザの設定で保存が止められています）");
 }
 
+document.querySelectorAll(".meas input").forEach(e=>{if(!e.placeholder)e.placeholder=" "}); // 空の欄だけ黄色にするため
 ids.forEach(i=>$(i).addEventListener("input",calc));
 fillPresets("");
 importFromHash();
