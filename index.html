@@ -59,8 +59,8 @@
   <div class="grid">
     <div><label>ユーザー名</label><input id="user" class="txt"></div>
     <div><label>商品名</label><input id="prod" class="txt"></div>
-    <div><label>品番</label><input id="part" class="txt"></div>
-    <div><label>保存した品番を呼び出す</label><select id="presets"><option value="">（選んでください）</option></select></div>
+    <div><label>伝票番号</label><input id="part" class="txt"></div>
+    <div><label>保存した伝票番号を呼び出す</label><select id="presets"><option value="">（選んでください）</option></select></div>
   </div>
 </div>
 
@@ -87,14 +87,14 @@
   </div>
   <p class="note">粗取りは「中仕上げ＋仕上げ」の分を残して止め、中仕上げは「仕上げ」の分を残して止める計算です。</p>
   <div class="row">
-    <button class="pri" id="save">この品番を保存</button>
-    <button id="del">呼び出した品番を削除</button>
+    <button class="pri" id="save">この伝票番号を保存</button>
+    <button id="del">呼び出した伝票番号を削除</button>
   </div>
-  <p class="note">「この品番を保存」で、商品名・仕上げ設定・取り代の設定をまとめて保存します。この端末（このブラウザ）の中にだけ残ります。</p>
+  <p class="note">「この伝票番号を保存」で、商品名・仕上げ設定・取り代の設定をまとめて保存します。この端末（このブラウザ）の中にだけ残ります。</p>
   <h3>ほかの端末へ送る</h3>
   <div class="row" style="margin-top:0">
-    <button id="link1">呼び出した品番と作業中の値のリンクを作る</button>
-    <button id="linkAll">保存した品番すべてのリンクを作る</button>
+    <button id="link1">呼び出した伝票番号と作業中の値のリンクを作る</button>
+    <button id="linkAll">保存した伝票番号すべてのリンクを作る</button>
   </div>
   <div id="linkBox" style="display:none;margin-top:10px">
     <textarea id="linkTxt" readonly style="width:100%;height:90px;font-size:13px;border:2px solid var(--line);border-radius:8px;padding:6px"></textarea>
@@ -104,7 +104,7 @@
     </div>
     <p class="note" id="linkMsg"></p>
   </div>
-  <p class="note">リンクを、送り先の端末でふだん使うブラウザ（Chrome など）で開くと、その端末にも品番が保存されます。図面の数値はリンクの中にだけ入り、公開ページのサーバーには送られません。</p>
+  <p class="note">リンクを、送り先の端末でふだん使うブラウザ（Chrome など）で開くと、その端末にも伝票番号が保存されます。図面の数値はリンクの中にだけ入り、公開ページのサーバーには送られません。</p>
 </div>
 
 <div class="card meas">
@@ -266,7 +266,7 @@ function calc(){
   }else $("r4").innerHTML="";
 }
 
-// 品番の保存・呼び出し（この端末の中だけ）
+// 伝票番号の保存・呼び出し（この端末の中だけ）
 function fillPresets(sel){
   const p=load(PKEY,{}),el=$("presets");
   el.innerHTML='<option value="">（選んでください）</option>';
@@ -280,40 +280,40 @@ $("presets").onchange=()=>{
 };
 $("save").onclick=()=>{
   const n=$("part").value.trim();
-  if(!n){alert("品番を入れてください");return}
+  if(!n){alert("伝票番号を入れてください");return}
   const p=load(PKEY,{});
-  if(p[n]&&!confirm("品番「"+n+"」は保存済みです。上書きしますか？"))return;
+  if(p[n]&&!confirm("伝票番号「"+n+"」は保存済みです。上書きしますか？"))return;
   p[n]={prod:$("prod").value.trim()};setting.forEach(i=>p[n][i]=$(i).value.trim());
-  if(store(PKEY,p)){fillPresets(n);alert("品番「"+n+"」を保存しました")}else alert("保存できませんでした（ブラウザの設定で保存が止められています）");
+  if(store(PKEY,p)){fillPresets(n);alert("伝票番号「"+n+"」を保存しました")}else alert("保存できませんでした（ブラウザの設定で保存が止められています）");
 };
 $("del").onclick=()=>{
   const n=$("presets").value;
-  if(!n){alert("削除する品番を、上の「呼び出す」で選んでください");return}
-  if(!confirm("品番「"+n+"」を削除しますか？"))return;
+  if(!n){alert("削除する伝票番号を、上の「呼び出す」で選んでください");return}
+  if(!confirm("伝票番号「"+n+"」を削除しますか？"))return;
   const p=load(PKEY,{});delete p[n];store(PKEY,p);fillPresets("");
 };
 $("clr").onclick=()=>{if(!confirm("実測値をすべて消しますか？（設定は残ります）"))return;meas.forEach(i=>$(i).value="");calc()};
 
-// 品番をリンクにする（#p= の後ろに入れる。# より後ろはサーバーへ送られない）
+// 伝票番号をリンクにする（#p= の後ろに入れる。# より後ろはサーバーへ送られない）
 const enc=o=>{const b=new TextEncoder().encode(JSON.stringify(o));let s="";b.forEach(c=>s+=String.fromCharCode(c));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
 const dec=t=>{const s=atob(t.replace(/-/g,"+").replace(/_/g,"/"));return JSON.parse(new TextDecoder().decode(Uint8Array.from(s,c=>c.charCodeAt(0))))};
 function makeLink(obj){
   const names=Object.keys(obj).filter(k=>k!=="_work");
   const url=location.href.split("#")[0]+"#p="+enc(obj);
   $("linkTxt").value=url;$("linkBox").style.display="block";
-  $("linkMsg").textContent=names.length+" 件の品番（"+names.join("、")+"）"+(obj._work?"と、作業中の値（ユーザー名・実測値）":"")+"が入ったリンクです。";
+  $("linkMsg").textContent=names.length+" 件の伝票番号（"+names.join("、")+"）"+(obj._work?"と、作業中の値（ユーザー名・実測値）":"")+"が入ったリンクです。";
   $("share").style.display=navigator.share?"inline-block":"none";
 }
 $("link1").onclick=()=>{
   const n=$("presets").value,p=load(PKEY,{});
-  if(!n||!p[n]){alert("リンクにする品番を、上の「保存した品番を呼び出す」で選んでください（先に「この品番を保存」が必要です）");return}
-  if($("part").value.trim()!==n){alert("品番の欄が「"+n+"」ではありません。品番を呼び出し直してから作ってください");return}
+  if(!n||!p[n]){alert("リンクにする伝票番号を、上の「保存した伝票番号を呼び出す」で選んでください（先に「この伝票番号を保存」が必要です）");return}
+  if($("part").value.trim()!==n){alert("伝票番号の欄が「"+n+"」ではありません。伝票番号を呼び出し直してから作ってください");return}
   const w={};["user",...meas].forEach(k=>{const x=$(k).value.trim();if(x!=="")w[k]=x});
   makeLink(Object.keys(w).length?{[n]:p[n],_work:w}:{[n]:p[n]});
 };
 $("linkAll").onclick=()=>{
   const p=load(PKEY,{});
-  if(!Object.keys(p).length){alert("保存した品番がありません");return}
+  if(!Object.keys(p).length){alert("保存した伝票番号がありません");return}
   makeLink(p);
 };
 $("copy").onclick=()=>{
@@ -322,21 +322,21 @@ $("copy").onclick=()=>{
   if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(done,()=>{$("linkTxt").select();document.execCommand("copy");done()});
   else{$("linkTxt").select();document.execCommand("copy");done()}
 };
-$("share").onclick=()=>{navigator.share({title:"刃形状 削り量計算（品番）",url:$("linkTxt").value}).catch(()=>{})};
+$("share").onclick=()=>{navigator.share({title:"刃形状 削り量計算（伝票番号）",url:$("linkTxt").value}).catch(()=>{})};
 function importFromHash(){
   const m=location.hash.match(/^#p=([A-Za-z0-9_-]+)/);
   if(!m)return;
   history.replaceState(null,"",location.href.split("#")[0]);
   let obj;
-  try{obj=dec(m[1]);if(typeof obj!=="object"||!obj)throw 0}catch(e){alert("リンクが壊れているため、品番を取り込めませんでした。リンクを作り直してください。");return}
+  try{obj=dec(m[1]);if(typeof obj!=="object"||!obj)throw 0}catch(e){alert("リンクが壊れているため、伝票番号を取り込めませんでした。リンクを作り直してください。");return}
   const work=(obj._work&&typeof obj._work==="object")?obj._work:null;delete obj._work;
   const p=load(PKEY,{}),names=Object.keys(obj);
   const dup=names.filter(n=>p[n]);
-  if(!confirm(names.length+" 件の品番を取り込みますか？\n"+names.join("、")+(work?"\n\n作業中の値（ユーザー名・実測値）も入れます。この端末で入力中の実測値は置き換わります。":"")+(dup.length?"\n\n※ 次の品番は、この端末の保存を上書きします：\n"+dup.join("、"):"")))return;
+  if(!confirm(names.length+" 件の伝票番号を取り込みますか？\n"+names.join("、")+(work?"\n\n作業中の値（ユーザー名・実測値）も入れます。この端末で入力中の実測値は置き換わります。":"")+(dup.length?"\n\n※ 次の伝票番号は、この端末の保存を上書きします：\n"+dup.join("、"):"")))return;
   names.forEach(n=>{const o={};["prod",...setting].forEach(k=>{if(obj[n]&&obj[n][k]!==undefined)o[k]=String(obj[n][k])});p[n]=o});
   if(store(PKEY,p)){fillPresets(names.length===1?names[0]:"");if(names.length===1)$("presets").onchange();
     if(work&&names.length===1){["user",...meas].forEach(k=>$(k).value=work[k]!==undefined?String(work[k]):"");calc()}
-    alert(names.length+" 件の品番"+(work?"と作業中の値":"")+"を取り込みました。")}
+    alert(names.length+" 件の伝票番号"+(work?"と作業中の値":"")+"を取り込みました。")}
   else alert("保存できませんでした（ブラウザの設定で保存が止められています）");
 }
 
