@@ -74,17 +74,22 @@
     <div><label>A面の斜面の角度°</label><input id="aA" inputmode="decimal"></div>
     <div><label>B面（底面側）の斜面の角度°</label><input id="aB" inputmode="decimal"></div>
   </div>
-  <h3>取り代の設定（各面に残す量・斜面に垂直）</h3>
+  <p class="note">B面＝底面の側、A面＝その反対の面です。</p>
+</div>
+
+<div class="card">
+  <div class="title">取り代の設定</div>
+  <p class="note" style="margin:0 0 10px">各面に残す量（斜面に垂直）</p>
   <div class="grid">
     <div><label>仕上げ加工の取り代</label><input id="sF" inputmode="decimal"></div>
     <div><label>中仕上げの取り代</label><input id="sM" inputmode="decimal"></div>
   </div>
-  <p class="note">粗取りは「中仕上げ＋仕上げ」の分を残して止め、中仕上げは「仕上げ」の分を残して止める計算です。B面＝底面の側、A面＝その反対の面です。</p>
+  <p class="note">粗取りは「中仕上げ＋仕上げ」の分を残して止め、中仕上げは「仕上げ」の分を残して止める計算です。</p>
   <div class="row">
     <button class="pri" id="save">この品番を保存</button>
     <button id="del">呼び出した品番を削除</button>
   </div>
-  <p class="note">保存した品番（商品名・仕上げ設定・取り代）は、この端末（このブラウザ）の中にだけ残ります。</p>
+  <p class="note">「この品番を保存」で、商品名・仕上げ設定・取り代の設定をまとめて保存します。この端末（このブラウザ）の中にだけ残ります。</p>
 </div>
 
 <div class="card meas">
