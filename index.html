@@ -95,7 +95,7 @@
   <div class="send">
   <h3 style="margin-top:0;color:#1d5c3a">ほかの端末へ送る</h3>
   <div class="row" style="margin-top:0">
-    <button id="link1">呼び出した伝票番号と作業中の値のリンクを作る</button>
+    <button id="link1">いま画面の伝票番号と作業中の値のリンクを作る</button>
     <button id="linkAll">保存した伝票番号すべてのリンクを作る</button>
   </div>
   <div id="linkBox" style="display:none;margin-top:10px">
@@ -308,11 +308,11 @@ function makeLink(obj){
   $("share").style.display=navigator.share?"inline-block":"none";
 }
 $("link1").onclick=()=>{
-  const n=$("presets").value,p=load(PKEY,{});
-  if(!n||!p[n]){alert("リンクにする伝票番号を、上の「保存した伝票番号を呼び出す」で選んでください（先に「この伝票番号を保存」が必要です）");return}
-  if($("part").value.trim()!==n){alert("伝票番号の欄が「"+n+"」ではありません。伝票番号を呼び出し直してから作ってください");return}
+  const n=$("part").value.trim();
+  if(!n){alert("伝票番号を入れてください");return}
+  const cur={prod:$("prod").value.trim()};setting.forEach(k=>cur[k]=$(k).value.trim());
   const w={};["user",...meas].forEach(k=>{const x=$(k).value.trim();if(x!=="")w[k]=x});
-  makeLink(Object.keys(w).length?{[n]:p[n],_work:w}:{[n]:p[n]});
+  makeLink(Object.keys(w).length?{[n]:cur,_work:w}:{[n]:cur});
 };
 $("linkAll").onclick=()=>{
   const p=load(PKEY,{});
@@ -345,7 +345,7 @@ function importFromHash(){
 
 document.querySelectorAll(".meas input").forEach(e=>{if(!e.placeholder)e.placeholder=" "}); // 空の欄だけ黄色にするため
 ids.forEach(i=>$(i).addEventListener("input",calc));
-fillPresets("");
+fillPresets(load(PKEY,{})[$("part").value.trim()]?$("part").value.trim():"");
 importFromHash();
 window.addEventListener("hashchange",()=>{importFromHash();calc()});
 calc();
