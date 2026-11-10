@@ -77,6 +77,14 @@
     <div><label>B面（底面側）の斜面の角度°</label><input id="aB" inputmode="decimal"></div>
   </div>
   <p class="note">B面＝底面の側、A面＝その反対の面です。</p>
+  <h3>図面の公差（仕上げの合否に使う。図面の値からの差）</h3>
+  <div class="grid">
+    <div><label>全長の公差　下（例 -0.02）</label><input id="tLlo" inputmode="decimal"></div>
+    <div><label>全長の公差　上（例 +0.02）</label><input id="tLhi" inputmode="decimal"></div>
+    <div><label>刃先の高さの公差　下</label><input id="thlo" inputmode="decimal"></div>
+    <div><label>刃先の高さの公差　上</label><input id="thhi" inputmode="decimal"></div>
+  </div>
+  <p class="note">空欄のときは、合否を出さずに図面の値との差だけを出します。</p>
 </div>
 
 <div class="card">
@@ -154,14 +162,8 @@
     </div>
   </div>
   <div id="o3"></div>
-  <div class="meas"><h3>仕上げ後の確認（測った値）</h3>
-    <div class="grid">
-      <div><label>全長</label><input id="L4" inputmode="decimal"></div>
-      <div><label>A面の斜面の幅</label><input id="a4" inputmode="decimal"></div>
-      <div><label>B面の斜面の幅</label><input id="b4" inputmode="decimal"></div>
-    </div>
-  </div>
-  <div id="r4"></div>
+  <div id="rounds"></div>
+  <div class="row"><button class="pri" id="addRound">＋ 次の回の実測を追加</button></div>
 </div>
 
 <div class="row"><button id="clr">実測値をすべて消す（次のワークへ）</button></div>
@@ -180,14 +182,21 @@
 
 <script>
 const head=["user","prod","part"];
-const setting=["T","W","Lt","phi","ht","aA","aB","sF","sM"];
-const meas=["L0","L1","a1","b1","L2","a2","b2","L3","a3","b3","L4","a4","b4"];
+const setting=["T","W","Lt","phi","ht","aA","aB","sF","sM","tLlo","tLhi","thlo","thhi"];
+const meas=["L0","L1","a1","b1","L2","a2","b2","L3","a3","b3"];
 const ids=[...head,...setting,...meas];
 const KEY="hakatachi-input-v2", PKEY="hakatachi-presets-v2";
 const $=i=>document.getElementById(i);
 const load=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||"null")??d}catch(e){return d}};
 const store=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}};
-{const s=load(KEY,{});ids.forEach(i=>{if(s[i]!==undefined)$(i).value=s[i]})}
+// 仕上げの2回目以降（何回でも）。前の版の「仕上げ後の確認」（L4・a4・b4）は 2回目に移す
+let fin=[{}];
+function finFrom(o){
+  if(o&&Array.isArray(o.fin)&&o.fin.length)return o.fin.map(r=>({L:String(r.L??""),a:String(r.a??""),b:String(r.b??"")}));
+  if(o&&(o.L4||o.a4||o.b4))return [{L:String(o.L4||""),a:String(o.a4||""),b:String(o.b4||"")}];
+  return [{}];
+}
+{const s=load(KEY,{});ids.forEach(i=>{if(s[i]!==undefined)$(i).value=s[i]});fin=finFrom(s)}
 
 const rad=d=>d*Math.PI/180, f3=x=>(Math.round(x*1000)/1000).toFixed(3);
 const num=i=>{const v=$(i).value.trim().replace(/,/g,".");return v===""?NaN:Number(v)};
@@ -236,13 +245,44 @@ function rest(G,R,stock,label){
   return h+'</table>';
 }
 const wait=t=>'<div class="wait">'+t+'</div>';
+const esc=t=>String(t).replace(/[&"<>]/g,c=>({"&":"&amp;",'"':"&quot;","<":"&lt;",">":"&gt;"}[c]));
+// 測った値が図面の公差に入っているか
+function judge(G,v,L,wA,wB){
+  const land=G.T-wA*G.tA-wB*G.tB, h=wB*G.tB;
+  const hasL=ok(v.tLlo,v.tLhi), hasH=ok(v.thlo,v.thhi);
+  const dL=L-G.Lt, dH=h-G.ht, sharp=land<=0.003;
+  const okL=hasL&&dL>=v.tLlo-1e-9&&dL<=v.tLhi+1e-9, okH=hasH&&sharp&&dH>=v.thlo-1e-9&&dH<=v.thhi+1e-9;
+  const mark=(has,good,over)=>has?(good?'<span class="ok">○ 公差内</span>':'<span class="ng">× '+(over?'削りすぎ':'公差外')+'</span>'):'';
+  const sg=x=>(x>=0?"+":"")+f3(x);
+  const t='<table style="margin-top:10px"><tr><th>測った結果</th><th>実測</th><th>図面との差</th><th>判定</th></tr>'+
+  '<tr><td>全長</td><td>'+f3(L)+'</td><td>'+sg(dL)+'</td><td>'+mark(hasL,okL,dL<v.tLlo)+'</td></tr>'+
+  '<tr><td>刃先の高さ（B面から）</td><td>'+(sharp?f3(h):'<span class="ng">刃先が立っていない（平らな所 約 '+f3(land)+'）</span>')+'</td><td>'+(sharp?sg(dH):'')+'</td><td>'+(sharp?mark(hasH,okH,false):'')+'</td></tr></table>';
+  return {html:t,done:hasL&&hasH&&okL&&okH,hasTol:hasL&&hasH,overL:hasL&&dL<v.tLlo};
+}
+function renderRounds(){
+  $("rounds").innerHTML=fin.map((r,i)=>{const k=i+2;return '<div class="meas" style="border-top:2px dashed #b9c9e6;margin-top:14px;padding-top:6px"><h3>仕上げ '+k+'回目の後の実測'+(i===fin.length-1&&fin.length>1?' <button data-del="1" style="font-size:13px;padding:3px 8px;margin-left:6px">この回を消す</button>':'')+'</h3><div class="grid">'+
+    '<div><label>全長</label><input data-k="'+i+'" data-f="L" inputmode="decimal" placeholder=" " value="'+esc(r.L||"")+'"></div>'+
+    '<div><label>A面の斜面の幅</label><input data-k="'+i+'" data-f="a" inputmode="decimal" placeholder=" " value="'+esc(r.a||"")+'"></div>'+
+    '<div><label>B面の斜面の幅</label><input data-k="'+i+'" data-f="b" inputmode="decimal" placeholder=" " value="'+esc(r.b||"")+'"></div>'+
+    '</div></div><div id="fo'+i+'"></div>'}).join("");
+}
+// 1回の実測から：公差の判定と、次に削る量
+function finOut(G,v,L,wA,wB,next){
+  const J=judge(G,v,L,wA,wB);
+  if(J.done)return J.html+'<p class="ok" style="font-size:18px">すべて公差内です。仕上がりです。</p>';
+  const R=remain(G,L,wA,wB);
+  let h=J.html;
+  if(J.overL)h+='<p class="ng">全長が公差より短くなっています（削りすぎ）。</p>';
+  if(R.A<=0.0005&&R.B<=0.0005)return h+(J.hasTol?'':'<p class="note">図面の値まで削れています（公差を入れると合否が出ます）。</p>');
+  return h+'<h3>次に削る量（'+next+'回目）</h3>'+order(G,0,R.A,R.B,L,wA,wB);
+}
 
 function calc(){
   const v={};ids.forEach(i=>v[i]=num(i));
-  const s={};ids.forEach(i=>s[i]=$(i).value);store(KEY,s);
+  const s={};ids.forEach(i=>s[i]=$(i).value);s.fin=fin;store(KEY,s);
   const need=["T","Lt","phi","ht","aA","aB","sF","sM"];
   if(!ok(...need.map(k=>v[k]))||v.aA<=0||v.aB<=0||v.phi<=0||v.T<=0){
-    ["o1","r1","o2","r2","o3","r4"].forEach(i=>$(i).innerHTML="");
+    ["o1","r1","o2","r2","o3"].forEach(i=>$(i).innerHTML="");fin.forEach((r,i)=>$("fo"+i).innerHTML="");
     $("o1").innerHTML=wait("仕上げ設定と取り代をすべて入れると計算します。");return;
   }
   const G=geo(v);
@@ -259,14 +299,14 @@ function calc(){
   if(ok(v.L2,v.a2,v.b2)){const R=remain(G,v.L2,v.a2,v.b2);$("r2").innerHTML=rest(G,R,v.sF,"仕上げの取り代（"+f3(v.sF)+"）")}
   else $("r2").innerHTML="";
   // 3 仕上げ（舐めた後の実測から）
-  if(ok(v.L3,v.a3,v.b3)){const R=remain(G,v.L3,v.a3,v.b3);$("o3").innerHTML=order(G,0,R.A,R.B,v.L3,v.a3,v.b3)}
+  if(ok(v.L3,v.a3,v.b3))$("o3").innerHTML=finOut(G,v,v.L3,v.a3,v.b3,1);
   else $("o3").innerHTML=wait("両面を舐めた後の実測を入れると、仕上げの量が出ます。");
-  // 仕上げ後の確認
-  if(ok(v.L4,v.a4,v.b4)){
-    const R=remain(G,v.L4,v.a4,v.b4);
-    const done=Math.abs(R.A)<=0.0015&&Math.abs(R.B)<=0.0015;
-    $("r4").innerHTML=rest(G,R,null,"")+(done?'<p class="ok">仕上がり寸法どおりです。</p>':(R.A>0.0015||R.B>0.0015)?'<p class="note">残りがある面は、上の「仕上がりまでの残り」の量をもう一度削ってください。</p>':'');
-  }else $("r4").innerHTML="";
+  // 2回目以降
+  const pf=x=>{const t=String(x??"").trim().replace(/,/g,".");return t===""?NaN:Number(t)};
+  fin.forEach((r,i)=>{
+    const L=pf(r.L),a=pf(r.a),b=pf(r.b);
+    $("fo"+i).innerHTML=ok(L,a,b)?finOut(G,v,L,a,b,i+3):"";
+  });
 }
 
 // 伝票番号の保存・呼び出し（この端末の中だけ）
@@ -295,7 +335,10 @@ $("del").onclick=()=>{
   if(!confirm("伝票番号「"+n+"」を削除しますか？"))return;
   const p=load(PKEY,{});delete p[n];store(PKEY,p);fillPresets("");
 };
-$("clr").onclick=()=>{if(!confirm("実測値をすべて消しますか？（設定は残ります）"))return;meas.forEach(i=>$(i).value="");calc()};
+$("clr").onclick=()=>{if(!confirm("実測値をすべて消しますか？（設定は残ります）"))return;meas.forEach(i=>$(i).value="");fin=[{}];renderRounds();calc()};
+$("addRound").onclick=()=>{fin.push({});renderRounds();calc();const e=document.querySelector('#rounds input[data-k="'+(fin.length-1)+'"]');if(e){e.scrollIntoView({block:"center"});e.focus()}};
+$("rounds").addEventListener("input",e=>{const t=e.target;if(t.dataset.k===undefined)return;fin[+t.dataset.k][t.dataset.f]=t.value;calc()});
+$("rounds").addEventListener("click",e=>{if(!e.target.dataset.del)return;if(!confirm("最後の回の実測を消しますか？"))return;fin.pop();renderRounds();calc()});
 
 // 伝票番号をリンクにする（#p= の後ろに入れる。# より後ろはサーバーへ送られない）
 const enc=o=>{const b=new TextEncoder().encode(JSON.stringify(o));let s="";b.forEach(c=>s+=String.fromCharCode(c));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")};
@@ -312,6 +355,7 @@ $("link1").onclick=()=>{
   if(!n){alert("伝票番号を入れてください");return}
   const cur={prod:$("prod").value.trim()};setting.forEach(k=>cur[k]=$(k).value.trim());
   const w={};["user",...meas].forEach(k=>{const x=$(k).value.trim();if(x!=="")w[k]=x});
+  if(fin.some(r=>r.L||r.a||r.b))w.fin=fin;
   makeLink(Object.keys(w).length?{[n]:cur,_work:w}:{[n]:cur});
 };
 $("linkAll").onclick=()=>{
@@ -338,11 +382,12 @@ function importFromHash(){
   if(!confirm(names.length+" 件の伝票番号を取り込みますか？\n"+names.join("、")+(work?"\n\n作業中の値（ユーザー名・実測値）も入れます。この端末で入力中の実測値は置き換わります。":"")+(dup.length?"\n\n※ 次の伝票番号は、この端末の保存を上書きします：\n"+dup.join("、"):"")))return;
   names.forEach(n=>{const o={};["prod",...setting].forEach(k=>{if(obj[n]&&obj[n][k]!==undefined)o[k]=String(obj[n][k])});p[n]=o});
   if(store(PKEY,p)){fillPresets(names.length===1?names[0]:"");if(names.length===1)$("presets").onchange();
-    if(work&&names.length===1){["user",...meas].forEach(k=>$(k).value=work[k]!==undefined?String(work[k]):"");calc()}
+    if(work&&names.length===1){["user",...meas].forEach(k=>$(k).value=work[k]!==undefined?String(work[k]):"");fin=finFrom(work);renderRounds();calc()}
     alert(names.length+" 件の伝票番号"+(work?"と作業中の値":"")+"を取り込みました。")}
   else alert("保存できませんでした（ブラウザの設定で保存が止められています）");
 }
 
+renderRounds();
 document.querySelectorAll(".meas input").forEach(e=>{if(!e.placeholder)e.placeholder=" "}); // 空の欄だけ黄色にするため
 ids.forEach(i=>$(i).addEventListener("input",calc));
 fillPresets(load(PKEY,{})[$("part").value.trim()]?$("part").value.trim():"");
